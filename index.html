@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>WordHunter · 英语单词学习</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            background: linear-gradient(135deg, #0f2b3d 0%, #1a3a2e 100%);
+            min-height: 100vh;
+            padding: 12px;
+            margin: 0;
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        }
+        .app-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(4px);
+            border-radius: 48px;
+            padding: 16px 18px 28px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,215,150,0.3);
+        }
+        h1 { text-align: center; font-size: 1.7rem; margin: 0 0 4px; background: linear-gradient(145deg, #FFE6B0, #FFB347); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .sub { text-align: center; color: #b8d0dc; font-size: 0.7rem; margin-bottom: 16px; }
+        .teacher-zone { background: #1e3a2faa; border-radius: 32px; padding: 12px 14px; margin-bottom: 16px; }
+        .teacher-zone label { font-weight: 600; color: #ffeaac; font-size: 0.8rem; }
+        .word-bank-input { width: 100%; padding: 10px 12px; border-radius: 28px; border: none; background: #fef5e3; font-family: monospace; font-size: 0.8rem; margin: 8px 0; }
+        .btn-secondary { background: #ffb347; border: none; padding: 10px 18px; border-radius: 40px; font-weight: bold; font-size: 0.9rem; cursor: pointer; margin-right: 6px; margin-bottom: 6px; }
+        .mode-switch { display: flex; gap: 8px; margin-bottom: 18px; }
+        .mode-btn { background: #2c4b3e; border: none; padding: 12px 0; border-radius: 60px; font-weight: bold; font-size: 0.9rem; color: #e9f5e1; cursor: pointer; flex: 1; text-align: center; }
+        .mode-btn.active { background: #ff9f4a; color: #1e2a1c; }
+        .quiz-card { background: #fef9ef; border-radius: 44px; padding: 20px 14px 24px; text-align: center; }
+        .current-word { font-size: 2.4rem; font-weight: 800; background: #2c3e2f; display: inline-block; padding: 12px 20px; border-radius: 60px; color: #fff2cf; margin: 8px 0; word-break: break-word; }
+        .phonetic, .part-of-speech, .meaning-cn { font-size: 0.9rem; margin: 6px auto; display: inline-block; padding: 4px 14px; border-radius: 40px; }
+        .audio-btn, .mic-main-btn, .next-word-btn { font-size: 1.2rem; padding: 14px 20px; border-radius: 60px; font-weight: bold; border: none; cursor: pointer; width: 90%; margin: 8px auto; }
+        .audio-btn { background: #487a6b; color: white; }
+        .mic-main-btn { background: #4c7a8a; color: white; }
+        .next-word-btn { background: #3cac6e; color: white; }
+        .options-area { display: flex; flex-direction: column; gap: 12px; margin: 20px 0; }
+        .opt-item { background: #eef2f7; padding: 14px; border-radius: 60px; text-align: center; font-size: 1rem; font-weight: 500; cursor: pointer; }
+        .feedback, .progress-stats { font-size: 0.8rem; padding: 8px; border-radius: 40px; margin: 12px 0; }
+        .hidden { display: none; }
+        footer { font-size: 0.6rem; text-align: center; margin-top: 16px; color: #95b7c7; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <h1>🎤 WordHunter</h1>
+    <div class="sub">跟读 · 发音 · 词义 | AI英语学习</div>
+
+    <div class="teacher-zone">
+        <label>📖 单词库（格式：单词 音标 词性 中文）</label>
+        <textarea id="wordBankArea" rows="2" class="word-bank-input" placeholder="例：
+analyze /'ænəlaɪz/ v. 分析
+pick up /pɪk ʌp/ v. 捡起"></textarea>
+        <button id="syncBankBtn" class="btn-secondary">✨ 加载词库</button>
+        <span id="wordCountSpan" style="color:#ffea9e;">📚 0词</span>
+    </div>
+
+    <div class="mode-switch">
+        <button data-mode="listen" class="mode-btn active">🎧 跟读</button>
+        <button data-mode="pronounce" class="mode-btn">🎙️ 发音</button>
+        <button data-mode="meaning" class="mode-btn">📝 词义</button>
+    </div>
+
+    <div class="quiz-card">
+        <div class="current-word" id="displayWord">---</div>
+        <div id="phoneticZone" class="phonetic"></div>
+        <div id="posZone" class="part-of-speech"></div>
+        <div id="meaningZone" class="meaning-cn"></div>
+
+        <div id="listenAudioPanel" class="hidden">
+            <button id="ukVoiceBtn" class="audio-btn">🇬🇧 英音跟读</button>
+            <div id="audioStatus" class="feedback"></div>
+        </div>
+
+        <div id="pronouncePanel" class="hidden">
+            <button id="startMicBtn" class="mic-main-btn">🎙️ 朗读测试</button>
+            <div id="pronounceResult" class="feedback"></div>
+            <div id="scoreDetail" class="feedback"></div>
+        </div>
+
+        <div id="meaningPanel" class="hidden">
+            <div id="optionsContainer" class="options-area"></div>
+            <div id="meaningProgress" class="feedback"></div>
+        </div>
+
+        <button id="nextBtn" class="next-word-btn">➡ 下一词</button>
+        <div class="progress-stats">
+            <span>✅ <span id="masteredStat">0</span></span>
+            <span>🔄 <span id="reviewStat">0</span></span>
+            <span>❌ <span id="weakStat">0</span></span>
+        </div>
+        <div id="globalMsg" class="feedback"></div>
+    </div>
+    <footer>点击页面激活声音 | 添加到主屏幕体验更佳</footer>
+</div>
+
+<script>
+    let wordBank = [];
+    let meaningMastered = [], meaningPending = [], meaningRound = 1, meaningIdx = 0, waitingNext = false;
+    let mastered = [], review = [], weak = [], currentIdx = 0, currentMode = "listen";
+    let currentRecognition = null, micGranted = false;
+
+    const syncBtn = document.getElementById('syncBankBtn');
+    const wordBankArea = document.getElementById('wordBankArea');
+    const wordCountSpan = document.getElementById('wordCountSpan');
+    const displayWord = document.getElementById('displayWord');
+    const phoneticZone = document.getElementById('phoneticZone');
+    const posZone = document.getElementById('posZone');
+    const meaningZone = document.getElementById('meaningZone');
+    const listenPanel = document.getElementById('listenAudioPanel');
+    const pronouncePanel = document.getElementById('pronouncePanel');
+    const meaningPanel = document.getElementById('meaningPanel');
+    const nextBtn = document.getElementById('nextBtn');
+    const masteredSpan = document.getElementById('masteredStat');
+    const reviewSpan = document.getElementById('reviewStat');
+    const weakSpan = document.getElementById('weakStat');
+    const globalMsg = document.getElementById('globalMsg');
+    const pronounceResult = document.getElementById('pronounceResult');
+    const scoreDetail = document.getElementById('scoreDetail');
+    const optionsDiv = document.getElementById('optionsContainer');
+    const meaningProgress = document.getElementById('meaningProgress');
+    const audioStatus = document.getElementById('audioStatus');
+
+    function updateStats() {
+        masteredSpan.innerText = mastered.filter(v=>v===true).length;
+        reviewSpan.innerText = review.filter(v=>v===true).length;
+        weakSpan.innerText = weak.filter(v=>v===true).length;
+    }
+
+    function parseBank(raw) {
+        const lines = raw.split(/\r?\n/);
+        const result = [];
+        for (let line of lines) {
+            line = line.trim();
+            if (!line) continue;
+            const m = line.match(/(\/[^\/]+\/)/);
+            if (!m) continue;
+            const phonetic = m[0];
+            const idx = line.indexOf(phonetic);
+            const word = line.substring(0, idx).trim();
+            const after = line.substring(idx + phonetic.length).trim().split(/\s+/);
+            const pos = after[0] || "";
+            const meaning = after.slice(1).join(" ");
+            if (word && meaning) result.push({ word, phonetic, pos, meaning });
+        }
+        return result;
+    }
+
+    function loadWordBank() {
+        let bank = parseBank(wordBankArea.value);
+        if (!bank.length) {
+            wordBankArea.value = "analyze /'ænəlaɪz/ v. 分析\npick up /pɪk ʌp/ v. 捡起\nsignificant /sɪɡ'nɪfɪkənt/ adj. 重要的\nenvironment /ɪn'vaɪrənmənt/ n. 环境";
+            bank = parseBank(wordBankArea.value);
+        }
+        wordBank = bank;
+        wordCountSpan.innerText = `📚 ${wordBank.length}词`;
+        mastered = new Array(wordBank.length).fill(false);
+        review = new Array(wordBank.length).fill(false);
+        weak = new Array(wordBank.length).fill(false);
+        meaningMastered = new Array(wordBank.length).fill(false);
+        meaningPending = [...Array(wordBank.length).keys()].filter(i => !meaningMastered[i]);
+        meaningIdx = 0; meaningRound = 1; waitingNext = false;
+        currentIdx = 0;
+        updateStats();
+        refreshUI();
+        globalMsg.innerText = "✅ 词库加载成功！";
+    }
+
+    function speakBritish(word) {
+        const btn = document.getElementById('ukVoiceBtn');
+        if (btn) { btn.disabled = true; btn.innerText = '🔊 加载中...'; }
+        if (audioStatus) audioStatus.innerText = '🎧 获取英音...';
+        const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(word)}&tl=en&client=tw-ob`);
+        audio.oncanplaythrough = () => audio.play().catch(() => fallbackSpeech(word));
+        audio.onerror = () => fallbackSpeech(word);
+        audio.onended = () => { if(btn) { btn.disabled = false; btn.innerText = '🇬🇧 英音跟读'; } if(audioStatus) audioStatus.innerText = '✅ 播放完成'; };
+        setTimeout(() => { if(btn && btn.disabled) { btn.disabled = false; btn.innerText = '🇬🇧 英音跟读'; } }, 5000);
+    }
+
+    function fallbackSpeech(word) {
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-GB';
+        utterance.rate = 0.8;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        const btn = document.getElementById('ukVoiceBtn');
+        utterance.onend = () => { if(btn) { btn.disabled = false; btn.innerText = '🇬🇧 英音跟读'; } if(audioStatus) audioStatus.innerText = '✅ 播放完成'; };
+    }
+
+    function renderMeaningMode() {
+        if (!wordBank.length) return;
+        if (waitingNext) return;
+        if (meaningIdx >= meaningPending.length) {
+            const allDone = meaningMastered.every(v => v === true);
+            if (allDone) {
+                optionsDiv.innerHTML = '<div class="feedback" style="background:#2e7d32;">🎉 完美！所有单词词义已掌握！</div>';
+                if (meaningProgress) meaningProgress.innerHTML = '🏆 通关！';
+                return;
+            }
+            meaningPending = meaningMastered.map((v,i)=>v?null:i).filter(v=>v!==null);
+            meaningIdx = 0; meaningRound++;
+            if (meaningProgress) meaningProgress.innerHTML = `📊 第${meaningRound}轮 | 剩余${meaningPending.length}`;
+        }
+        const idx = meaningPending[meaningIdx];
+        const item = wordBank[idx];
+        displayWord.innerText = item.word;
+        phoneticZone.innerText = item.phonetic;
+        posZone.innerText = item.pos;
+        meaningZone.innerText = "？";
+        const correct = item.meaning;
+        let others = wordBank.filter(w=>w.word!==item.word).map(w=>w.meaning);
+        let dists = [...new Set(others)].slice(0,3);
+        while(dists.length<3) dists.push("其他");
+        let opts = [correct, ...dists].sort(()=>Math.random()-0.5);
+        optionsDiv.innerHTML = "";
+        opts.forEach(opt => {
+            const btn = document.createElement('div');
+            btn.className = "opt-item";
+            btn.innerText = opt;
+            btn.onclick = () => {
+                if (waitingNext) return;
+                if (opt === correct) {
+                    meaningMastered[idx] = true;
+                    meaningProgress.innerText = `📊 第${meaningRound}轮 | 剩余${meaningPending.length-1}`;
+                    meaningIdx++;
+                    renderMeaningMode();
+                } else {
+                    globalMsg.innerText = `❌ 错误，正确答案：${correct}`;
+                    waitingNext = true;
+                    document.querySelectorAll('.opt-item').forEach(b => b.style.pointerEvents = 'none');
+                }
+            };
+            optionsDiv.appendChild(btn);
+        });
+        if (meaningProgress) meaningProgress.innerText = `📊 第${meaningRound}轮 | 剩余${meaningPending.length}个 | 总进度${meaningMastered.filter(v=>v).length}/${wordBank.length}`;
+    }
+
+    function meaningManualNext() {
+        if (!waitingNext) return;
+        waitingNext = false;
+        meaningIdx++;
+        document.querySelectorAll('.opt-item').forEach(b => { b.style.pointerEvents = 'auto'; });
+        renderMeaningMode();
+    }
+
+    async function startPronunciation() {
+        if (!wordBank.length) { if(pronounceResult) pronounceResult.innerText = "⚠️ 请先加载词库"; return; }
+        const target = wordBank[currentIdx].word;
+        if (!window.SpeechRecognition && !window.webkitSpeechRecognition) { if(pronounceResult) pronounceResult.innerText = "❌ 不支持语音识别"; return; }
+        if (!micGranted) {
+            try { await navigator.mediaDevices.getUserMedia({ audio: true }); micGranted = true; } 
+            catch(e) { if(pronounceResult) pronounceResult.innerText = "❌ 需要麦克风权限"; return; }
+        }
+        if (currentRecognition) try { currentRecognition.abort(); } catch(e) {}
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recog = new SpeechRec();
+        currentRecognition = recog;
+        recog.lang = 'en-GB';
+        const btn = document.getElementById('startMicBtn');
+        if (btn) { btn.classList.add('listening'); btn.innerText = '🎙️ 聆听中...'; }
+        if (pronounceResult) { pronounceResult.innerText = `🎤 请朗读: ${target}`; pronounceResult.style.background = "#e67e22"; }
+        recog.onresult = (e) => {
+            const spoken = e.results[0][0].transcript.toLowerCase().trim();
+            const cleanSpoken = spoken.replace(/[^\w]/g, '');
+            const cleanTarget = target.toLowerCase().replace(/[^\w]/g, '');
+            const isMatch = cleanSpoken === cleanTarget || (cleanTarget.includes(cleanSpoken) && cleanSpoken.length>2) || (cleanSpoken.includes(cleanTarget));
+            if (pronounceResult) {
+                pronounceResult.style.background = isMatch ? "#2e7d32" : "#c62828";
+                pronounceResult.innerText = isMatch ? `✅ 发音准确！` : `❌ 识别: "${spoken}"`;
+            }
+            if (isMatch && !mastered[currentIdx]) { mastered[currentIdx]=true; weak[currentIdx]=false; updateStats(); globalMsg.innerText = "✅ 发音正确！点击「下一词」"; }
+            else if (!isMatch && !weak[currentIdx]) { weak[currentIdx]=true; mastered[currentIdx]=false; updateStats(); globalMsg.innerText = "❌ 发音需加强"; }
+            try { recog.stop(); } catch(e) {}
+            if (btn) { btn.classList.remove('listening'); btn.innerText = '🎙️ 朗读测试'; }
+            currentRecognition = null;
+        };
+        recog.onerror = () => { if(pronounceResult) pronounceResult.innerText = "❌ 识别错误"; if(btn) { btn.classList.remove('listening'); btn.innerText = '🎙️ 朗读测试'; } currentRecognition = null; };
+        recog.start();
+    }
+
+    function refreshUI() {
+        if (!wordBank.length) { displayWord.innerText = "📭 无词库"; return; }
+        if (currentMode === 'meaning') {
+            listenPanel.classList.add('hidden'); pronouncePanel.classList.add('hidden'); meaningPanel.classList.remove('hidden');
+            renderMeaningMode();
+        } else {
+            meaningPanel.classList.add('hidden');
+            const item = wordBank[currentIdx];
+            displayWord.innerText = item.word; phoneticZone.innerText = item.phonetic; posZone.innerText = item.pos; meaningZone.innerText = item.meaning;
+            if (currentMode === 'listen') { listenPanel.classList.remove('hidden'); pronouncePanel.classList.add('hidden'); }
+            else { listenPanel.classList.add('hidden'); pronouncePanel.classList.remove('hidden'); }
+        }
+    }
+
+    function nextWord() {
+        if (currentRecognition) try { currentRecognition.abort(); } catch(e) {}
+        if (!wordBank.length) return;
+        if (currentMode === 'meaning') { if (waitingNext) meaningManualNext(); else if (meaningIdx < meaningPending.length) { meaningIdx++; renderMeaningMode(); } }
+        else { currentIdx = (currentIdx + 1) % wordBank.length; refreshUI(); if(pronounceResult) { pronounceResult.innerText = '🎙️ 点击按钮开始朗读'; pronounceResult.style.background = "#1e2a2f"; } }
+    }
+
+    function setMode(mode) {
+        if (currentRecognition) try { currentRecognition.abort(); } catch(e) {}
+        currentMode = mode;
+        document.querySelectorAll('.mode-btn').forEach(btn => { if(btn.dataset.mode === mode) btn.classList.add('active'); else btn.classList.remove('active'); });
+        if (wordBank.length) refreshUI();
+    }
+
+    syncBtn.onclick = loadWordBank;
+    nextBtn.onclick = nextWord;
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.onclick = () => setMode(btn.dataset.mode));
+    document.getElementById('ukVoiceBtn')?.addEventListener('click', () => { if(wordBank[currentIdx]) speakBritish(wordBank[currentIdx].word); });
+    document.getElementById('startMicBtn')?.addEventListener('click', startPronunciation);
+    document.body.onclick = () => { new Audio().play().catch(()=>{}); };
+    loadWordBank();
+</script>
+</body>
+</html>
